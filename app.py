@@ -1,24 +1,91 @@
 from flask import Flask, render_template, request, jsonify
-from pick_and_write import get_random_articles, fetch_wikipedia_content, generate_blog_post
+import random
+import requests
+from bs4 import BeautifulSoup
 import os
 from dotenv import load_dotenv
+import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Load environment variables
+# Load environment variables and configure Gemini
 load_dotenv()
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+genai.configure(api_key=GOOGLE_API_KEY)
+model = genai.GenerativeModel('gemini-pro')
+
+def get_random_articles(num=5):
+    with open('unusual_articles.txt', 'r') as f:
+        articles = f.readlines()
+    articles = [article.split('. ')[1].strip() for article in articles]
+    return random.sample(articles, num)
+
+def get_title_from_url(url):
+    title = url.split('/')[-1]
+    title = title.replace('%27', "'")
+    title = title.replace('%28', '(')
+    title = title.replace('%29', ')')
+    title = title.replace('%2C', ',')
+    title = title.replace('%22', '"')
+    title = title.replace('_', ' ')
+    return title
+
+def fetch_wikipedia_content(url):
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    title = soup.find('h1', {'id': 'firstHeading'}).text
+    content = soup.find('div', {'id': 'mw-content-text'}).get_text()[:2000]
+    return title, content, url
+
+def generate_blog_post(title, content, url):
+    try:
+        prompt = f"""
+        For this Wikipedia article about {title}, provide:
+        1. One compelling sentence explaining why this topic is fascinating
+        2. 5-7 key bullet points that would make an engaging story, including:
+           - Most surprising facts from the article
+           - ONLY direct quotes that appear in the Wikipedia text
+           - Historical significance
+           - Modern relevance
+           - Human interest elements
+           - Any controversy or debate
+           - Unexpected connections
+        
+        IMPORTANT: Only use quotes that appear word-for-word in the Wikipedia article text.
+        If you can't find good quotes, focus on factual points instead.
+        
+        Use this content as source: {content[:2000]}
+        Format with the hook sentence first, followed by bullet points.
+        """
+        
+        safety_settings = {
+            "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
+            "HARM_CATEGORY_HATE_SPEECH": "BLOCK_ONLY_HIGH",
+            "HARM_CATEGORY_HARASSMENT": "BLOCK_ONLY_HIGH",
+            "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_ONLY_HIGH"
+        }
+        
+        response = model.generate_content(
+            prompt,
+            safety_settings=safety_settings
+        )
+        
+        return response.text if response.text else None
+            
+    except Exception as e:
+        print(f"\nError generating content for '{title}': {str(e)}")
+        return None
 
 @app.route('/')
 def home():
     articles = get_random_articles(5)
-    # Convert URLs to titles for display
-    article_options = [(url.split('/')[-1].replace('_', ' '), url) for url in articles]
+    article_options = [(get_title_from_url(url), url) for url in articles]
     return render_template('index.html', articles=article_options)
 
 @app.route('/new_articles')
 def new_articles():
     articles = get_random_articles(5)
-    article_options = [(url.split('/')[-1].replace('_', ' '), url) for url in articles]
+    article_options = [(get_title_from_url(url), url) for url in articles]
     return jsonify(article_options)
 
 @app.route('/generate', methods=['POST'])
