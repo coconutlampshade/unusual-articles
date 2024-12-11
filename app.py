@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
+from urllib.parse import unquote
 
 app = Flask(__name__)
 
@@ -21,13 +22,15 @@ def get_random_articles(num=5):
     return random.sample(articles, num)
 
 def get_title_from_url(url):
+    # Extract the title from the URL
     title = url.split('/')[-1]
-    title = title.replace('%27', "'")
-    title = title.replace('%28', '(')
-    title = title.replace('%29', ')')
-    title = title.replace('%2C', ',')
-    title = title.replace('%22', '"')
+    
+    # Fix URL encodings and Unicode
+    title = unquote(title, encoding='utf-8')
+    
+    # Replace underscores with spaces
     title = title.replace('_', ' ')
+    
     return title
 
 def fetch_wikipedia_content(url):
