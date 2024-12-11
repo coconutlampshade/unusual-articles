@@ -33,26 +33,68 @@ def get_random_articles(num=5):
 
 def get_title_from_url(url):
     # Extract the title from the URL
-    title = url.split('/')[-1].replace('_', ' ')
+    title = url.split('/')[-1]
+    
+    # Fix common URL encodings
+    title = title.replace('%27', "'")  # Fix apostrophes
+    title = title.replace('%28', '(')  # Fix parentheses
+    title = title.replace('%29', ')')
+    title = title.replace('%2C', ',')  # Fix commas
+    title = title.replace('%22', '"')  # Fix quotes
+    title = title.replace('_', ' ')    # Replace underscores with spaces
+    
     return title
 
-def select_article():
-    articles = get_random_articles(5)
-    print("\nHere are 5 random articles. Please select one (1-5):")
-    for idx, url in enumerate(articles, 1):
-        title = get_title_from_url(url)
-        print(f"{idx}. {title}")
-        print(f"   {url}\n")
-    
-    while True:
-        try:
-            choice = int(input("Enter your choice (1-5): "))
-            if 1 <= choice <= 5:
-                return articles[choice - 1]
-            else:
-                print("Please enter a number between 1 and 5")
-        except ValueError:
-            print("Please enter a valid number")
+def select_and_generate_articles():
+    while True:  # Keep going until user quits
+        articles = get_random_articles(5)
+        remaining_articles = articles.copy()
+        
+        while remaining_articles:
+            print("\nHere are the remaining articles. Please select one (1-5) or press 's' for new options:")
+            for idx, url in enumerate(remaining_articles, 1):
+                title = get_title_from_url(url)
+                print(f"{idx}. {title}")
+                print(f"   {url}\n")
+            
+            choice = input("Enter your choice (1-5), 's' to skip, or 'q' to quit: ").lower()
+            
+            if choice == 's':
+                break  # Break inner loop to get new articles
+            
+            if choice == 'q':
+                return  # Exit the function entirely
+            
+            try:
+                choice_num = int(choice)
+                if 1 <= choice_num <= len(remaining_articles):
+                    selected_url = remaining_articles[choice_num - 1]
+                    print(f"\nSelected article: {selected_url}")
+                    
+                    # Fetch and generate content
+                    title, content, url = fetch_wikipedia_content(selected_url)
+                    print(f"Generating outline for: {title}")
+                    
+                    blog_post = generate_blog_post(title, content, url)
+                    if blog_post:
+                        print("\nOutline:")
+                        print("=" * 50)
+                        print(blog_post)
+                        print("=" * 50)
+                    # Remove the selected article from the list
+                    remaining_articles.pop(choice_num - 1)
+                    
+                    if remaining_articles:
+                        continue_choice = input("\nWould you like to generate an outline for another article? (y/n): ").lower()
+                        if continue_choice != 'y':
+                            print("\nHere are 5 new random articles...")
+                            break  # Break inner loop to get new articles
+                    
+                else:
+                    print(f"Please enter a number between 1 and {len(remaining_articles)} (or 's' to skip, 'q' to quit)")
+            except ValueError:
+                if choice not in ['s', 'q']:
+                    print("Please enter a valid number, 's' to skip, or 'q' to quit")
 
 def fetch_wikipedia_content(url):
     response = requests.get(url)
@@ -73,70 +115,30 @@ def fetch_wikipedia_content(url):
 def generate_blog_post(title, content, url):
     try:
         prompt = f"""
-        Write a 300-word blog post about {title}. 
-        Use this Wikipedia content as your source: {content[:2000]}...
+        For this Wikipedia article about {title}, provide:
+        1. One compelling sentence explaining why this topic is fascinating
+        2. 5-7 key bullet points that would make an engaging story, including:
+           - Most surprising facts from the article
+           - ONLY direct quotes that appear in the Wikipedia text (do not make up or modify quotes)
+           - Historical significance
+           - Modern relevance
+           - Human interest elements
+           - Any controversy or debate
+           - Unexpected connections
         
-        Content Structure Requirements:
-        1. Open with an attention-grabbing first sentence highlighting the most fascinating aspect
-        2. Write 2-3 tight paragraphs explaining the core concept/story
-        3. Include at least 2 direct quotes from the Wikipedia article
-        4. Include the Wikipedia URL as a reference
-        5. End with a thought-provoking takeaway or modern relevance
+        IMPORTANT: Only use quotes that appear word-for-word in the Wikipedia article text.
+        If you can't find good quotes, focus on factual points instead.
         
-        Writing Style Requirements:
-        6. Use clear, conversational language - avoid academic/encyclopedic tone
-        7. Transform dry facts into engaging narrative
-        8. Include specific details rather than generalizations
-        9. Limit dates/numbers to only the most essential ones
-        10. Break up complex ideas into digestible pieces
-        11. Write in the style of Mental Floss and Atlas Obscura
-        12. Use humor and wit where appropriate
-        13. Don't use subheadings
-        
-        Content Selection Guidelines:
-        14. Focus on the most compelling 20% of the article
-        15. Skip obvious background information
-        16. Emphasize human elements and storytelling opportunities
-        17. Highlight modern relevance or contemporary significance
-        18. Include at least one surprising or counterintuitive fact
-        19. Handle mature topics with academic professionalism
-        
-        Specific Don'ts:
-        20. Don't try to cover everything
-        21. Don't copy Wikipedia's language or structure
-        22. Don't get bogged down in technical details
-        23. Don't include tangential information
-        24. Don't end with a weak summary
-        
-        Format Requirements:
-        25. Format in markdown with proper headings and links
-        26. Include an SEO-friendly title
-        27. Keep to approximately 300 words
-        28. Ensure proper flow between paragraphs
-        29. Use appropriate terminology for academic/historical context
-        
-         IMPORTANT LENGTH REQUIREMENTS:
-        - The final post MUST be 350 words (excluding title and URL)
-        - Each paragraph should be 80-100 words
-        - Do not include subheadings or bullet points
-        - Count your words carefully and adjust until you reach exactly 350
-        
-        Before Generating:
-        - Count words in each paragraph to ensure 350 total
-        - Verify substantive content fills the word count (no fluff)
-        - Ensure proper distribution of content across paragraphs
-        - Verify word count is close to 300
-        - Ensure opening sentence hooks readers
-        - Confirm ending provides value/insight
-        - Fact-check any surprising claims
+        Use this content as source: {content[:2000]}
+        Format with the hook sentence first, followed by bullet points.
         """
         
         safety_settings = {
-    "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
-    "HARM_CATEGORY_HATE_SPEECH": "BLOCK_ONLY_HIGH",
-    "HARM_CATEGORY_HARASSMENT": "BLOCK_ONLY_HIGH",
-    "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_ONLY_HIGH"
-}
+            "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
+            "HARM_CATEGORY_HATE_SPEECH": "BLOCK_ONLY_HIGH",
+            "HARM_CATEGORY_HARASSMENT": "BLOCK_ONLY_HIGH",
+            "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_ONLY_HIGH"
+        }
         
         response = model.generate_content(
             prompt,
@@ -156,31 +158,7 @@ def generate_blog_post(title, content, url):
         return None
 
 def main():
-    # Get user selection
-    article_url = select_article()
-    print(f"\nSelected article: {article_url}")
-    
-    # Fetch content
-    title, content, url = fetch_wikipedia_content(article_url)
-    print(f"Generating blog post about: {title}")
-    
-    # Generate blog post
-    blog_post = generate_blog_post(title, content, url)
-    
-    if blog_post:
-        # Save to file with title as filename
-        filename = f"blog_posts/{title.lower().replace(' ', '_')}.md"
-        os.makedirs('blog_posts', exist_ok=True)
-        
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write(blog_post)
-        
-        print(f"Blog post saved to: {filename}")
-        print("\nBlog post content:")
-        print("=" * 50)
-        print(blog_post)
-    else:
-        print("Failed to generate blog post. Please try another article.")
+    select_and_generate_articles()
 
 if __name__ == "__main__":
     main()
