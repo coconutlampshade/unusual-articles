@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WikiWriter</title>
+    <style>
+        body {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+        }
+        .article-option {
+            padding: 15px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .article-option:hover {
+            background-color: #f5f5f5;
+        }
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+        #result {
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .primary {
+            background: #007bff;
+            color: white;
+        }
+        .secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .hook {
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>WikiWriter</h1>
+    <p>Select an article to generate an outline, or press 'S' to see new options:</p>
+    
+    <div id="articles-list">
+        {% for title, url in articles %}
+        <div class="article-option">
+            <input type="radio" name="article_url" value="{{ url }}" id="{{ url }}">
+            <label for="{{ url }}">{{ title }}</label>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <button class="primary" onclick="generateOutline()">Generate Outline</button>
+    <button class="secondary" onclick="loadNewArticles()">Skip (S)</button>
+
+    <div class="loading">Generating outline...</div>
+
+    <div id="result"></div>
+
+    <script>
+        // Handle 'S' key press
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 's') {
+                loadNewArticles();
+            }
+        });
+
+        async function loadNewArticles() {
+            try {
+                const response = await fetch('/new_articles');
+                const articles = await response.json();
+                
+                document.getElementById('articles-list').innerHTML = articles.map(([title, url]) => `
+                    <div class="article-option">
+                        <input type="radio" name="article_url" value="${url}" id="${url}">
+                        <label for="${url}">${title}</label>
+                    </div>
+                `).join('');
+                
+                document.getElementById('result').innerHTML = '';
+            } catch (error) {
+                alert('Error loading new articles: ' + error.message);
+            }
+        }
+
+        async function generateOutline() {
+            const selectedArticle = document.querySelector('input[name="article_url"]:checked');
+            if (!selectedArticle) {
+                alert('Please select an article first');
+                return;
+            }
+
+            const loading = document.querySelector('.loading');
+            const result = document.getElementById('result');
+            
+            loading.style.display = 'block';
+            result.innerHTML = '';
+            
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `article_url=${encodeURIComponent(selectedArticle.value)}`
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.innerHTML = `
+                        <h2>${data.title}</h2>
+                        <div class="content">${data.content.replace(/\n/g, '<br>')}</div>
+                        <p><a href="${data.url}" target="_blank">Wikipedia Source</a></p>
+                    `;
+                } else {
+                    alert(data.error || 'Failed to generate outline');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
