@@ -43,26 +43,47 @@ def fetch_wikipedia_content(url):
 def generate_quick_hook(title, content):
     try:
         prompt = f"""
-        Write ONE short, compelling sentence (20-30 words) explaining why this Wikipedia article about '{title}' is fascinating and unusual.
-        Use this content as source: {content[:1000]}
-        Focus on the most surprising or unusual aspect.
-        DO NOT use phrases like "This article is about" or "This Wikipedia page".
+        Write ONE fascinating sentence (20-30 words) about this unusual Wikipedia article: '{title}'
+        
+        Rules:
+        - Start with an attention-grabbing fact or detail
+        - Use vivid, specific language
+        - Focus on the most bizarre, unexpected, or amusing aspect
+        - Include numbers, dates, or specific details when relevant
+        - Avoid generic phrases like "interesting article" or "fascinating story"
+        - End with something that makes the reader want to learn more
+        
+        Examples of good hooks:
+        - "In 1518, hundreds of people in Strasbourg danced themselves to exhaustion and death in a mysterious month-long dancing plague."
+        - "Hidden beneath Paris lies 300km of secret tunnels filled with millions of carefully arranged human bones from centuries-old cemeteries."
+        
+        Content to use: {content[:1000]}
         """
         
-        response = model.generate_content(prompt)
+        safety_settings = {
+            "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
+            "HARM_CATEGORY_HATE_SPEECH": "BLOCK_ONLY_HIGH",
+            "HARM_CATEGORY_HARASSMENT": "BLOCK_ONLY_HIGH",
+            "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_ONLY_HIGH"
+        }
+        
+        response = model.generate_content(
+            prompt,
+            safety_settings=safety_settings
+        )
+        
         if response and response.text:
-            # Clean up the response
             hook = response.text.strip()
-            # If hook is empty or too short, provide a fallback
-            if len(hook) < 10:
-                return f"A fascinating Wikipedia article about {title} - click to learn more."
+            # Validate hook quality
+            if len(hook) < 10 or "this article" in hook.lower() or "wikipedia" in hook.lower():
+                return f"💡 Discover how {title} became one of history's most unusual stories."
             return hook
         else:
-            return f"A fascinating Wikipedia article about {title} - click to learn more."
+            return f"💡 Discover how {title} became one of history's most unusual stories."
             
     except Exception as e:
         print(f"\nError generating hook for '{title}': {str(e)}")
-        return f"A fascinating Wikipedia article about {title} - click to learn more."
+        return f"💡 Discover how {title} became one of history's most unusual stories."
 
 def get_articles_with_hooks():
     articles = get_random_articles(5)

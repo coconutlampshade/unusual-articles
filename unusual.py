@@ -9,16 +9,18 @@ soup = BeautifulSoup(response.text, 'html.parser')
 # Find the main content div
 content_div = soup.find('div', {'id': 'mw-content-text'})
 
-# Find all links in the main content
+# Find all bold tags and get links within them
 urls = []
 if content_div:
-    for link in content_div.find_all('a'):
-        href = link.get('href')
-        # Only get Wikipedia article links (internal links that start with /wiki/)
-        if href and href.startswith('/wiki/') and ':' not in href:
-            full_url = 'https://en.wikipedia.org' + href
-            if full_url not in urls:  # Avoid duplicates
-                urls.append(full_url)
+    for bold in content_div.find_all('b'):
+        # Find links within bold tags
+        for link in bold.find_all('a'):
+            href = link.get('href')
+            # Only get Wikipedia article links (internal links that start with /wiki/)
+            if href and href.startswith('/wiki/') and ':' not in href:
+                full_url = 'https://en.wikipedia.org' + href
+                if full_url not in urls:  # Avoid duplicates
+                    urls.append(full_url)
 
 # Write URLs to a file
 with open('unusual_articles.txt', 'w', encoding='utf-8') as f:

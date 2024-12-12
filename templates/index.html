@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>WikiWriter</title>
+    <title>Unusual Wikipedia Articles</title>
     <style>
         body {
             max-width: 800px;
@@ -42,37 +42,77 @@
         button:hover {
             background: #0052a3;
         }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0066cc;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .articles-container {
+            min-height: 400px; /* Prevents layout shift */
+        }
+        
+        .fade {
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
     </style>
 </head>
 <body>
     <h1>Unusual Wikipedia Articles</h1>
     <p>Press 'S' or click the button to see new articles:</p>
     
-    <div id="articles-list">
-        {% for article in articles %}
-        <div class="article">
-            <h2><a href="{{ article.url }}" target="_blank">{{ article.title }}</a></h2>
-            <p>{{ article.hook }}</p>
+    <div class="loading">
+        <div class="loading-spinner"></div>
+        <p>Finding unusual articles...</p>
+    </div>
+    
+    <div class="articles-container">
+        <div id="articles-list">
+            {% for article in articles %}
+            <div class="article">
+                <h2><a href="{{ article.url }}" target="_blank">{{ article.title }}</a></h2>
+                <p>{{ article.hook }}</p>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
     
     <button onclick="loadNewArticles()">Show New Articles (S)</button>
 
     <script>
-        // Handle 'S' key press
-        document.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 's') {
-                loadNewArticles();
-            }
-        });
-
         async function loadNewArticles() {
+            const loading = document.querySelector('.loading');
+            const articlesList = document.getElementById('articles-list');
+            
+            // Show loading state
+            loading.style.display = 'block';
+            articlesList.classList.add('fade');
+            
             try {
                 const response = await fetch('/new_articles');
                 const articles = await response.json();
                 
-                document.getElementById('articles-list').innerHTML = articles.map(article => `
+                articlesList.innerHTML = articles.map(article => `
                     <div class="article">
                         <h2><a href="${article.url}" target="_blank">${article.title}</a></h2>
                         <p>${article.hook}</p>
@@ -80,8 +120,20 @@
                 `).join('');
             } catch (error) {
                 alert('Error loading new articles: ' + error.message);
+            } finally {
+                // Hide loading state
+                loading.style.display = 'none';
+                articlesList.classList.remove('fade');
             }
         }
+
+        // Handle 'S' key press
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 's') {
+                loadNewArticles();
+            }
+        });
     </script>
 </body>
+</html>
 </html>
