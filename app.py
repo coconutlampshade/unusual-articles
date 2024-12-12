@@ -6,6 +6,9 @@ import os
 from dotenv import load_dotenv
 import google.generativeai as genai
 from urllib.parse import unquote
+import time
+from functools import lru_cache
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -14,6 +17,24 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel('gemini-pro')
+
+# Rate limiting variables
+CALLS_PER_MINUTE = 60  # Adjust based on your API limits
+call_timestamps = []
+
+def check_rate_limit():
+    """Check if we're within API rate limits"""
+    global call_timestamps
+    now = datetime.now()
+    
+    # Remove timestamps older than 1 minute
+    call_timestamps = [ts for ts in call_timestamps if now - ts < timedelta(minutes=1)]
+    
+    if len(call_timestamps) >= CALLS_PER_MINUTE:
+        return False
+    
+    call_timestamps.append(now)
+    return True
 
 def get_random_articles(num=5):
     with open('unusual_articles.txt', 'r') as f:
@@ -40,7 +61,12 @@ def fetch_wikipedia_content(url):
     content = soup.find('div', {'id': 'mw-content-text'}).get_text()[:2000]
     return title, content, url
 
+@lru_cache(maxsize=1000)
 def generate_quick_hook(title, content):
+    """Cache hooks to reduce API calls"""
+    if not check_rate_limit():
+        time.sleep(1)  # Wait if rate limited
+        
     try:
         prompt = f"""
         Write ONE fascinating sentence (20-30 words) about this unusual Wikipedia article: '{title}'
@@ -106,7 +132,12 @@ def get_articles_with_hooks():
     
     return article_info
 
+@lru_cache(maxsize=1000)
 def get_article_category(content):
+    """Cache categories to reduce API calls"""
+    if not check_rate_limit():
+        time.sleep(1)  # Wait if rate limited
+        
     try:
         prompt = f"""
         Based on this content, choose ONE category that best describes this article:
