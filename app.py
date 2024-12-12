@@ -40,56 +40,49 @@ def fetch_wikipedia_content(url):
     content = soup.find('div', {'id': 'mw-content-text'}).get_text()[:2000]
     return title, content, url
 
-def generate_blog_post(title, content, url):
+def generate_quick_hook(title, content):
     try:
         prompt = f"""
-        For this Wikipedia article about {title}, provide:
-        1. One compelling sentence explaining why this topic is fascinating
-        2. 5-7 key bullet points that would make an engaging story, including:
-           - Most surprising facts from the article
-           - ONLY direct quotes that appear in the Wikipedia text
-           - Historical significance
-           - Modern relevance
-           - Human interest elements
-           - Any controversy or debate
-           - Unexpected connections
-        
-        IMPORTANT: Only use quotes that appear word-for-word in the Wikipedia article text.
-        If you can't find good quotes, focus on factual points instead.
-        
-        Use this content as source: {content[:2000]}
-        Format with the hook sentence first, followed by bullet points.
+        Write ONE short, compelling sentence (20-30 words) explaining why this Wikipedia article about '{title}' is fascinating and unusual.
+        Use this content: {content[:1000]}
+        Focus on the most surprising or unusual aspect.
         """
         
-        safety_settings = {
-            "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
-            "HARM_CATEGORY_HATE_SPEECH": "BLOCK_ONLY_HIGH",
-            "HARM_CATEGORY_HARASSMENT": "BLOCK_ONLY_HIGH",
-            "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_ONLY_HIGH"
-        }
-        
-        response = model.generate_content(
-            prompt,
-            safety_settings=safety_settings
-        )
-        
+        response = model.generate_content(prompt)
         return response.text if response.text else None
             
     except Exception as e:
-        print(f"\nError generating content for '{title}': {str(e)}")
+        print(f"\nError generating hook for '{title}': {str(e)}")
         return None
+
+def get_articles_with_hooks():
+    articles = get_random_articles(5)
+    article_info = []
+    
+    for url in articles:
+        try:
+            title, content, _ = fetch_wikipedia_content(url)
+            hook = generate_quick_hook(title, content)
+            article_info.append({
+                'title': title,
+                'url': url,
+                'hook': hook
+            })
+        except Exception as e:
+            print(f"Error processing {url}: {str(e)}")
+            continue
+    
+    return article_info
 
 @app.route('/')
 def home():
-    articles = get_random_articles(5)
-    article_options = [(get_title_from_url(url), url) for url in articles]
-    return render_template('index.html', articles=article_options)
+    articles = get_articles_with_hooks()
+    return render_template('index.html', articles=articles)
 
 @app.route('/new_articles')
 def new_articles():
-    articles = get_random_articles(5)
-    article_options = [(get_title_from_url(url), url) for url in articles]
-    return jsonify(article_options)
+    articles = get_articles_with_hooks()
+    return jsonify(articles)
 
 @app.route('/generate', methods=['POST'])
 def generate():
