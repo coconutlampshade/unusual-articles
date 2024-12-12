@@ -44,16 +44,25 @@ def generate_quick_hook(title, content):
     try:
         prompt = f"""
         Write ONE short, compelling sentence (20-30 words) explaining why this Wikipedia article about '{title}' is fascinating and unusual.
-        Use this content: {content[:1000]}
+        Use this content as source: {content[:1000]}
         Focus on the most surprising or unusual aspect.
+        DO NOT use phrases like "This article is about" or "This Wikipedia page".
         """
         
         response = model.generate_content(prompt)
-        return response.text if response.text else None
+        if response and response.text:
+            # Clean up the response
+            hook = response.text.strip()
+            # If hook is empty or too short, provide a fallback
+            if len(hook) < 10:
+                return f"A fascinating Wikipedia article about {title} - click to learn more."
+            return hook
+        else:
+            return f"A fascinating Wikipedia article about {title} - click to learn more."
             
     except Exception as e:
         print(f"\nError generating hook for '{title}': {str(e)}")
-        return None
+        return f"A fascinating Wikipedia article about {title} - click to learn more."
 
 def get_articles_with_hooks():
     articles = get_random_articles(5)
@@ -107,5 +116,4 @@ def generate():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=8080, debug=True)
