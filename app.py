@@ -62,9 +62,9 @@ def generate_quick_hook(title, content):
         
         safety_settings = {
             "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
-            "HARM_CATEGORY_HATE_SPEECH": "BLOCK_ONLY_HIGH",
-            "HARM_CATEGORY_HARASSMENT": "BLOCK_ONLY_HIGH",
-            "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_ONLY_HIGH"
+            "HARM_CATEGORY_HATE_SPEECH": "BLOCK_NONE",
+            "HARM_CATEGORY_HARASSMENT": "BLOCK_NONE",
+            "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_NONE"
         }
         
         response = model.generate_content(
@@ -93,16 +93,62 @@ def get_articles_with_hooks():
         try:
             title, content, _ = fetch_wikipedia_content(url)
             hook = generate_quick_hook(title, content)
+            category = get_article_category(content)
             article_info.append({
                 'title': title,
                 'url': url,
-                'hook': hook
+                'hook': hook,
+                'category': category
             })
         except Exception as e:
             print(f"Error processing {url}: {str(e)}")
             continue
     
     return article_info
+
+def get_article_category(content):
+    try:
+        prompt = f"""
+        Based on this content, choose ONE category that best describes this article:
+        - Bizarre History
+        - Strange Science
+        - Unusual Places
+        - Weird Culture
+        - Peculiar People
+        - Odd Objects
+        - Mysterious Events
+        
+        Content: {content[:500]}
+        Return ONLY the category name, nothing else.
+        """
+        
+        safety_settings = {
+            "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
+            "HARM_CATEGORY_HATE_SPEECH": "BLOCK_ONLY_HIGH",
+            "HARM_CATEGORY_HARASSMENT": "BLOCK_ONLY_HIGH",
+            "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_ONLY_HIGH"
+        }
+        
+        response = model.generate_content(
+            prompt,
+            safety_settings=safety_settings
+        )
+        
+        if response and response.text:
+            category = response.text.strip()
+            # Validate it's one of our categories
+            valid_categories = [
+                "Bizarre History", "Strange Science", "Unusual Places",
+                "Weird Culture", "Peculiar People", "Odd Objects", "Mysterious Events"
+            ]
+            if category in valid_categories:
+                return category
+            return "Mysterious Events"  # Default if invalid category returned
+        return "Mysterious Events"
+            
+    except Exception as e:
+        print(f"\nError generating category: {str(e)}")
+        return "Mysterious Events"
 
 @app.route('/')
 def home():

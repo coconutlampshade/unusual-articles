@@ -75,6 +75,16 @@
             opacity: 0.5;
             transition: opacity 0.3s;
         }
+        
+        .category {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 5px;
+            padding: 2px 8px;
+            background: #f0f0f0;
+            border-radius: 12px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -92,6 +102,7 @@
             <div class="article">
                 <h2><a href="{{ article.url }}" target="_blank">{{ article.title }}</a></h2>
                 <p>{{ article.hook }}</p>
+                <div class="category">{{ article.category }}</div>
             </div>
             {% endfor %}
         </div>
@@ -104,7 +115,6 @@
             const loading = document.querySelector('.loading');
             const articlesList = document.getElementById('articles-list');
             
-            // Show loading state
             loading.style.display = 'block';
             articlesList.classList.add('fade');
             
@@ -116,12 +126,12 @@
                     <div class="article">
                         <h2><a href="${article.url}" target="_blank">${article.title}</a></h2>
                         <p>${article.hook}</p>
+                        <div class="category">${article.category}</div>
                     </div>
                 `).join('');
             } catch (error) {
                 alert('Error loading new articles: ' + error.message);
             } finally {
-                // Hide loading state
                 loading.style.display = 'none';
                 articlesList.classList.remove('fade');
             }
@@ -135,5 +145,4 @@
         });
     </script>
 </body>
-</html>
 </html>
